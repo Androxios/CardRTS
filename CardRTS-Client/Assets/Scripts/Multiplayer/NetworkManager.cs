@@ -1,60 +1,92 @@
-using Androxios.Core;
 using Riptide;
 using Riptide.Utils;
 using System;
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
+//Enum defining message types from server to client.
 public enum ServerToClientMsg : ushort
 {
     ApproveLogin,
 }
 
+//Enum defining message types from client to server.
 public enum ClientToServerMsg : ushort
 {
     RequestLogin,
 }
 
-public class NetworkManager : Singleton<NetworkManager>
+//This class manages network communication.
+public class NetworkManager : MonoBehaviour
 {
-    protected override void Awake()
+    //Awake method.
+    protected void Awake()
     {
-        base.Awake();
+        //Initialize Riptide logger.
         RiptideLogger.Initialize(Debug.Log, Debug.Log, Debug.LogWarning, Debug.LogError, true);
     }
 
-    public Client Client;
-    [SerializeField] private ushort m_Port = 7777;
-    [SerializeField] private string m_IP = "127.0.0.1";
+    //Reference to network settings scriptable object.
+    [SerializeField] private NetworkSettingsSO m_netSettings;
 
-    private static string s_LocalUsername;
+    //Reference to the client instance.
+    public Client Client { get; private set; }
 
+    //Start method.
     private void Start()
     {
-        Client = new Client();
-        Client.Connected += OnClientConnected;
+        Client = new Client(); //Create a new client instance.
+        Client.Connected += OnClientConnected; //Subscribe to client connected event.
+        Subscribe(); //Subscribe to network events.
     }
 
+    //Subscribe to network events.
+    private void Subscribe()
+    {
+        NetworkEvents.ConnectRequest += Connect;
+        NetworkEvents.SendMessage += OnSendMessage;
+    }
+
+    //Unsubscribe from network events.
+    private void Unsubscribe()
+    {
+        NetworkEvents.ConnectRequest -= Connect;
+        NetworkEvents.SendMessage -= OnSendMessage;
+    }
+
+    //Method to send a message via the client.
+    private void OnSendMessage(Message msg)
+    {
+        Client.Send(msg);
+    }
+
+    //Event handler for client connected event.
     private void OnClientConnected(object sender, EventArgs e)
     {
-        PlayerManager.Instance.SpawnInitalPlayer(s_LocalUsername);
+        //Invoke connect success event with client ID and local username.
+        NetworkEvents.OnConnectSuccess(Client.Id, m_netSettings.LocalUsername);
+        m_netSettings.LocalId = Client.Id;
     }
 
-    public void Connect(string username)
+    //Method to connect to the server with username and password.
+    public void Connect(string username, string password)
     {
-        s_LocalUsername = string.IsNullOrEmpty(username) ? $"Guest" : username;
-        Client.Connect($"{m_IP}:{m_Port}");
+        //Set local username (default to "Guest" if empty).
+        m_netSettings.LocalUsername = string.IsNullOrEmpty(username) ? $"Guest" : username;
+
+        //Connect to the server.
+        Client.Connect($"{m_netSettings.Ip}:{m_netSettings.Port}");
     }
 
+    //FixedUpdate method.
     private void FixedUpdate()
     {
-        Client.Update();
+        Client.Update(); //Update the client.
     }
 
-    protected override void OnDestroy()
+    //OnDestroy method.
+    protected void OnDestroy()
     {
-        base.OnDestroy();
-        Client.Connected -= OnClientConnected;
+        Unsubscribe(); //Unsubscribe from network events.
+        Client.Connected -= OnClientConnected; //Unsubscribe from client connected event.
     }
 }

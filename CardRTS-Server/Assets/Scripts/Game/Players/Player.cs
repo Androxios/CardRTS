@@ -1,21 +1,24 @@
 using Riptide;
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
+// This class represents a player on the server.
 public class Player : MonoBehaviour
 {
-    public ushort Id {get; private set;}
-    public string Username {get; private set;}
+    //Properties to store player ID and username.
+    public ushort Id { get; private set; }
+    public string Username { get; private set; }
 
+    //Method to initialize player with ID and username.
     public void Init(ushort id, string username)
     {
         Id = id;
         Username = username;
     }
 
+    //OnDestroy method.
     private void OnDestroy()
     {
+        //Remove player from player manager when destroyed.
         PlayerManager.RemovePlayer(Id);
     }
 
@@ -24,12 +27,13 @@ public class Player : MonoBehaviour
     /* ========== MESSAGE SENDING ==========*/
     public void ApproveLogin(bool approve)
     {
+        // Create a message with the approval status
         Message msg = Message.Create(MessageSendMode.Reliable, ServerToClientMsg.ApproveLogin);
-        approve = true;
         msg.AddBool(approve);
-        NetworkManager.Instance.Server.Send(msg, Id);
-    }
 
+        //Send the message to the client with the player's ID.
+        NetworkEvents.Send(msg, Id);
+    }
 
     #endregion
 }

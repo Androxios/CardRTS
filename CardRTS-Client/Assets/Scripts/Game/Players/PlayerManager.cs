@@ -1,19 +1,23 @@
-using Androxios.Core;
 using Riptide;
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class PlayerManager : Singleton<PlayerManager>
+//This class manages player instantiation and interactions in the game.
+public class PlayerManager : MonoBehaviour
 {
-    [SerializeField] private GameObject m_PlayerPrefab;
-    private static GameObject s_PlayerPrefab;
-    private static Dictionary<ushort, Player> s_Players = new Dictionary<ushort, Player>();
+    [SerializeField] private NetworkSettingsSO m_netSettings; //Reference to network settings scriptable object.
+    [SerializeField] private GameObject m_PlayerPrefab; //Prefab for the player object.
+    private static GameObject s_PlayerPrefab; //Static reference to the player prefab.
+    private static Dictionary<ushort, Player> s_Players = new Dictionary<ushort, Player>(); //Dictionary to store players by ID.
+
+    //Static method to get a player by ID.
     public static Player GetPlayer(ushort id)
     {
         s_Players.TryGetValue(id, out Player player);
         return player;
     }
+
+    //Static method to remove a player by ID.
     public static bool RemovePlayer(ushort id)
     {
         if(s_Players.TryGetValue(id, out Player player))
@@ -24,28 +28,52 @@ public class PlayerManager : Singleton<PlayerManager>
         return false;
     }
 
-    public static Player LocalPlayer => GetPlayer(NetworkManager.Instance.Client.Id);
-    public static bool IsLocalPlayer(ushort id) => id == LocalPlayer.Id;
+    private static ushort s_localId = ushort.MaxValue; //ID of the local player.
 
-    protected override void Awake()
+    //Awake method.
+    private void Awake()
     {
-        base.Awake();
-        s_PlayerPrefab = m_PlayerPrefab;
+        s_PlayerPrefab = m_PlayerPrefab; //Assign the player prefab.
+        Subscribe(); //Subscribe to network events
     }
 
-    public void SpawnInitalPlayer(string username)
+    //OnDestroy method.
+    private void OnDestroy()
     {
+        Unsubscribe(); //Unsubscribe from network events.
+    }
+
+    //Subscribe to network events.
+    private void Subscribe()
+    {
+        NetworkEvents.ConnectSuccess += SpawnInitalPlayer;
+    }
+
+    //Unsubscribe from network events.
+    private void Unsubscribe()
+    {
+        NetworkEvents.ConnectSuccess -= SpawnInitalPlayer;
+    }
+
+    //Spawn the initial player when connection is successful.
+    public void SpawnInitalPlayer(ushort id, string username)
+    {
+        //Instantiate player prefab.
         Player player = Instantiate(s_PlayerPrefab, Vector3.zero, Quaternion.identity).GetComponent<Player>();
+
+        //Set player name and initialize.
         player.name = $"{username} -- LOCAL PLAYER (WAITING FOR SERVER)";
-        ushort id = NetworkManager.Instance.Client.Id;
         player.Init(id, username, true);
-        s_Players.Add(id, player);
-        player.RequestInit();
+        s_localId = id; //Set local player ID.
+        s_Players.Add(id, player); //Add player to dictionary.
+        player.RequestInit(); //Request initialization from server.
     }
 
+    //Initialize local player.
     private static void InitializeLocalPlayer()
     {
-        LocalPlayer.name = $"{LocalPlayer.Username} -- {LocalPlayer.Id} -- LOCAL";
+        Player local = s_Players[s_localId];
+        local.name = $"{local.Username} -- {local.Id} -- LOCAL";
     }
 
     #region Messages
@@ -57,7 +85,7 @@ public class PlayerManager : Singleton<PlayerManager>
         bool approve = msg.GetBool();
         if(approve)
         {
-            InitializeLocalPlayer();
+            InitializeLocalPlayer(); //Initialize local player upon approval.
         }
     }
 

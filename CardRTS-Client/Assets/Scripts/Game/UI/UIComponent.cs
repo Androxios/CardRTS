@@ -1,23 +1,23 @@
 using System;
-using System.Collections;
-using System.Collections.Generic;
 using TMPro;
-using UnityEngine;
 using UnityEngine.UI;
 
+//Base class for UI components.
 public class UIComponent
 {
-    public string Key;
+    public string Key; //Key to identify the UI component.
 }
 
+//Serializable class for button UI components, inheriting from UIComponent.
 [Serializable]
 public class ButtonComponent : UIComponent
 {
-    public Button Button;
+    public Button Button; //Reference to the Button component.
 }
 
+//Serializable class for input field UI components, inheriting from UIComponent.
 [Serializable]
 public class InputComponent : UIComponent
 {
-    public TMP_InputField Input;
+    public TMP_InputField Input; //Reference to the TMP_InputField component.
 }
